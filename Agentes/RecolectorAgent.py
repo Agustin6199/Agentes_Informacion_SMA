@@ -99,7 +99,7 @@ class RecolectorAgent(Agent):
 			if team[2]:
 				self.dict_team.update({'Racha de Partidos Ganados': team[2][1], 'Racha de Partidos Empatados': team[2][2], 'Racha de Partidos Perdidos': team[2][3]})
 			if team[3]:
-				self.dict_team.update({'Poblacion': self.get_city_population_per_team().get(self.team_name)})
+				self.dict_team.update({'Poblacion': team[3][0]})
 
 
 			self.agent.dict_team.update(self.dict_team)
