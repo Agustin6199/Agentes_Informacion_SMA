@@ -1,24 +1,35 @@
 import time
 import requests
 import re
-import pandas_datareader.data as web		# Utiliza la versión 0.9.0rc0 de pandas_datareader (pip install pandas_datareader==0.9.0rc0)
-import pandas as pd				# Utiliza la versión 0.24.2 de pandas (pip install pandas==0.24.2)
+import pandas_datareader.data as web						# Utiliza la versión 0.9.0rc0 de pandas_datareader (pip install pandas_datareader==0.9.0rc0)
+import pandas as pd											# Utiliza la versión 0.24.2 de pandas (pip install pandas==0.24.2)
 from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour, CyclicBehaviour
 from spade.message import Message
 from spade.template import Template
 from bs4 import BeautifulSoup
-
+import sys
 
 class RecolectorAgent(Agent):
+
+
+	async def setup(self):
+		self.dict_team = {}
+		print("Instanciado RecolectorAgent")
+		b = self.GetInfoBehav()
+		self.add_behaviour(b)
+
+
+	# Comportamiento que envía la información recopilada al ReglasDifusasAgent
 	class InformBehav(OneShotBehaviour):
 
 		async def on_start(self):
-			print('InformBehav starting')
+			print('[InformBehav] Iniciando comportamiento encargado de enviar la información recopilada al ReglasDifusasAgent...')
 			#print(self.dict_team)
 	
 		async def run(self):
-			print("InformBehav running")
+			print("[InformBehav] Comportamiento encargado de enviar la información recopilada al ReglasDifusasAgent en proceso...")
+			print("[InformBehav] Enviando información recopilada...")
 			msg = Message(to="reglas_difusas_agente_sma@xmpp.jp")     # Instantiate the message
 			msg.set_metadata("performative", "inform")  # Set the "inform" FIPA performative
 			msg.set_metadata("ontology", "myOntology")  # Set the ontology of the message content
@@ -27,29 +38,32 @@ class RecolectorAgent(Agent):
 			msg.body = str(self.agent.dict_team)	
 
 			await self.send(msg)
-			print("Message sent!", msg)
+			print("[InformBehav] Enviado el siguiente mensaje: ")
+			print(msg)
 
-			# stop agent from behaviour
+			#si hemos hecho las lecturas cesamos el comportamiento
+			self.kill(exit_code=10)
+
+		async def on_end(self):
+			print('[InformBehav] Finalizando comportamiento encargado de enviar la información recopilada al ReglasDifusasAgent...')
+
+			# Paramos el agente
+			print('[InformBehav] Parando el agente RecolectorAgent....')
 			await self.agent.stop()
 
-	async def setup(self):
-		self.dict_team = {}
-		print("SenderAgent started")
-		b = self.GetInfoBehav()
-		self.add_behaviour(b)
 
-
+	# Comportamiento encargado de recopilar toda la información
 	class GetInfoBehav(OneShotBehaviour):
 
-
 		async def on_start(self):
-			print('GetInfoBehav starting')
-			self.team_name = 'Barcelona'
+			print('[GetInfoBehav] Iniciando comportamiento encargado de recopilar toda la información...')
+			self.team_name = sys.argv[-1]
 			self.dict_team = {}
 
 
 		async def run(self):
-			print('GetInfoBehav running')
+			print('[GetInfoBehav] Comportamiento comportamiento encargado de recopilar toda la información en proceso...')
+			print('[GetInfoBehav] Recopilando información del ' + self.team_name + '...')
 			team = []
 			
 			#Cogemos la informacion de la tabla de ranking,s ino se puede se devuelve una lista vacia
@@ -76,7 +90,6 @@ class RecolectorAgent(Agent):
 			#Cogemos la informacion de la poblacion,sino se puede se devuelve una lista vacia
 			team.append([self.get_city_population_per_team().get(self.team_name)])
 
-			#print(dict_team)
 			if team[0]:
 				self.dict_team.update({'Ranking' : team[0][0], 'Nombre': team[0][1], 'Ptos': team[0][2], 'Partidos Jugados': team[0][3], 'Partidos Ganados': team[0][4],
 				 'Partidos Ganados de Local': team[0][5], 'Partidos Ganados de Visitante': team[0][6], 'Partidos Empatados': team[0][7], 
@@ -90,17 +103,18 @@ class RecolectorAgent(Agent):
 
 
 			self.agent.dict_team.update(self.dict_team)
-			#si hemos hecho las lecturas cesamos el comportamiento
+			#Si hemos recopilado toda la información necesaria, finalizamos el comportamiento
 			self.kill(exit_code=10)
 
 		
 		async def on_end(self):
-			print('GetInfoBehav ending')
-			#print(self.dict_team)
+			print('[GetInfoBehav] Finalizando comportamiento encargado de recopilar toda la información...')
 			self.agent.add_behaviour(self.agent.InformBehav())
 
-#######################################RACHAS#######################################################################
+		##############################################################################################################
+		#################################################RACHAS#######################################################
 		def get_rachas_teams(self):
+			print('[GetInfoBehav] Obteniendo información sobre la racha del equipo...')
 			#Definimos la url a la quedeseamos solicitar conexion y realizamos el request correspondiente
 			url = 'https://resultados.as.com/resultados/futbol/primera/clasificacion/'
 			#url = 'https://resultados.as.com/resultados/futbol/segunda/clasificacion/'
@@ -132,7 +146,6 @@ class RecolectorAgent(Agent):
 			return equipos
 
 		def get_racha(self, url):
-			#print(url)
 
 			respuesta = requests.get(
 				url,
@@ -202,11 +215,12 @@ class RecolectorAgent(Agent):
 			except:
 				return False
 
-##############################################################################################################
-
-###########################################CIUDAD/POBLACION###################################################
+		##############################################################################################################
+		###########################################CIUDAD/POBLACION###################################################
 		def get_city_population_per_team(self):
 			
+			print('[GetInfoBehav] Obteniendo información sobre el número de habitantes de la ciudad del equipo...')
+
 			# Mediante la librería pandas_datareader, obtenemos los datos de la API de econdb
 			df = web.DataReader('dataset=URB_CPOP1&v=TIME&h=Geopolitical entity (declaring)&from=2014-01-01&to=2025-01-01&CITIES=[ES012C1,ES019C1,ES001C1,ES002C1,ES004K1,ES522C1,ES022C1,ES510C1,ES505C1,ES518C1,ES501C1,ES005C1,ES003C1,ES009C1,ES014C1,ES520C1]&FREQ=[A]&INDIC_UR=[DE1001V]', 'econdb')
 
@@ -214,31 +228,28 @@ class RecolectorAgent(Agent):
 			df.columns = df.columns.droplevel('Frequency')
 			df.columns = df.columns.droplevel('Urban audit indicator')
 
-			# Mostramos los datos por pantalla
-			#print(df.head())
-
 			# Definimos un diccionario con la correspondencia entre los equipos y sus respectivas ciudades
 			city_team_dict = {
-		    		"Alavés":"Vitoria/Gasteiz",
-		    		"Athletic":"Bilbao",
-		    		"Atlético":"Madrid",
-		    		"Barcelona":"Barcelona",
-		    		"Betis":"Sevilla",
-		    		"Cádiz":"Cádiz",
-		    		"Celta":"Vigo",
-		    		"Eibar":"San Sebastián/Donostia",
-		    		"Elche":"Elche/Elx",
-		    		"Getafe":"Getafe",
-		    		"Granada":"Granada",
-		    		"Huesca":"Zaragoza",
-		    		"Levante":"Valencia",
-		    		"Osasuna":"Pamplona/Iruña",
-		    		"Real Sociedad":"San Sebastián/Donostia",
-		    		"Real Madrid":"Madrid",
-		    		"Real Valladolid":"Valladolid",
-		    		"Sevilla":"Sevilla",
-		    		"Valencia":"Valencia",
-		    		"Villareal":"Castellón de la Plana/Castelló de la Plana",
+					"Alavés":"Vitoria/Gasteiz",
+					"Athletic":"Bilbao",
+					"Atlético":"Madrid",
+					"Barcelona":"Barcelona",
+					"Betis":"Sevilla",
+					"Cádiz":"Cádiz",
+					"Celta":"Vigo",
+					"Eibar":"San Sebastián/Donostia",
+					"Elche":"Elche/Elx",
+					"Getafe":"Getafe",
+					"Granada":"Granada",
+					"Huesca":"Zaragoza",
+					"Levante":"Valencia",
+					"Osasuna":"Pamplona/Iruña",
+					"Real Sociedad":"San Sebastián/Donostia",
+					"Real Madrid":"Madrid",
+					"Real Valladolid":"Valladolid",
+					"Sevilla":"Sevilla",
+					"Valencia":"Valencia",
+					"Villareal":"Castellón de la Plana/Castelló de la Plana",
 			}
 
 			# Definimos el diccionario a devolver, y lo construimos	
@@ -255,10 +266,12 @@ class RecolectorAgent(Agent):
 
 			return citypop_per_team_dict
 
-##############################################################################################################
-
-#########################################STATIDISTS###########################################################
+		##############################################################################################################
+		###############################################STATISTICS#####################################################
 		def get_statistics(self):
+
+			print('[GetInfoBehav] Obteniendo información sobre estadísticas del equipo...')
+
 			#Definimos la url a la quedeseamos solicitar conexion y realizamos el request correspondiente
 			url = 'https://www.eduardolosilla.es/'
 
@@ -278,8 +291,7 @@ class RecolectorAgent(Agent):
 			tables = contenido_web.find_all('div', attrs={'class':'c-detalle-partido-simple__estadisticas ng-star-inserted'})
 
 			for p in tables:
-				#Para cada tabla recogemos la informacion con los equipos(estos se agrupan de 2 en 2), que contienen el nombre del equipo y la
-				# media por partido respecto la posesion, tiros, tiros a puerta y goles
+				#Para cada tabla recogemos la informacion con los equipos(estos se agrupan de 2 en 2), que contienen el nombre del equipo y la media por partido respecto la posesion, tiros, tiros a puerta y goles
 				header = p.find_all('div', attrs={'class':'c-detalle-partido-simple__estadisticas__header'})
 
 				nombres = header[1].find_all('div', attrs={'class':'c-detalle-partido-simple__estadisticas__header__selector m-stat'})
@@ -295,11 +307,12 @@ class RecolectorAgent(Agent):
 
 			return equipos
 
-
-##############################################################################################################
-
-########################################RANKING###############################################################
+		##############################################################################################################
+		################################################RANKINGS######################################################
 		def get_ranking_teams(self):
+
+			print('[GetInfoBehav] Obteniendo información sobre el ranking del equipo...')
+
 			#Definimos la url a la quedeseamos solicitar conexion y realizamos el request correspondiente
 			url = 'https://resultados.as.com/resultados/futbol/primera/clasificacion/'
 			#url = 'https://resultados.as.com/resultados/futbol/segunda/clasificacion/'
@@ -314,8 +327,7 @@ class RecolectorAgent(Agent):
 			#Procesamos la respuesta dada por el servidor de la pagina con el contenido de está
 			contenido_web = BeautifulSoup(respuesta.text, 'lxml')
 
-			#Definimos la variable donde se van a guardar todos los equyipos con su posicion en la liga, puntos, partidos jugados, partidos ganados,
-			#partidos empatados y partidos perdidos
+			#Definimos la variable donde se van a guardar todos los equipos con su posicion en la liga, puntos, partidos jugados, partidos ganados, partidos empatados y partidos perdidos
 			ranking = [['Posicion', 'Equipo', 'Ptos', 'Partidos Jugados', 'Partidos Ganados', 'Partidos Ganados de Local', 'Partidos Ganados de Visitante', 'Partidos Empatados', 'Partidos Empatados', 'Goles a Favor', 'Goles en Contra']]
 			
 			#Recogemos unicamenete la tabla de clasificación de la liga
@@ -340,21 +352,25 @@ class RecolectorAgent(Agent):
 
 			return ranking
 
-##############################################################################################################
 
 
+equipos_validos = ['Barcelona', 'Villareal', 'Sevilla']
 
+if len(sys.argv) == 2:
 
+	if sys.argv[-1] in equipos_validos:
+		senderagent = RecolectorAgent("recolector_agente_sma@xmpp.jp", "sma_mola_mazo")
+		senderagent.start()
 
-
-if __name__ == "__main__":
-	senderagent = RecolectorAgent("recolector_agente_sma@xmpp.jp", "sma_mola_mazo")
-	senderagent.start()
-
-	while True:
-		try:
-			time.sleep(1)
-		except KeyboardInterrupt:
-			senderagent.stop()
-			break
-	print("Agents finished")
+		while True:
+			try:
+				time.sleep(1)
+			except KeyboardInterrupt:
+				senderagent.stop()
+				break
+		print("Agente finalizado")
+	else:
+		print("Error, el equipo " + sys.argv[-1] + " no es válido. Prueba a introducir uno de los equipos de la siguiente lista: ")
+		print(equipos_validos)
+else:
+	print("Error, argumentos incorrectos. La sintaxis correcta para lanzar el agente es la siguiente: python3 RecolectorAgent.py <Nombre del equipo>")
