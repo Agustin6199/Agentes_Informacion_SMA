@@ -33,7 +33,6 @@ class ReglasDifusasAgent(Agent):
 	
 		async def on_start(self):
 			print('[RecvBehav] Iniciando comportamiento encargado de recibir la información recopilada en los RecolectorAgent...')
-			# Instanciamoslos atributos para comprobar que mensajes hemos recibido con los equipos local y visitante y guarda la información de etsos
 			self.local = False
 			self.visitante = False
 			self.equipo_local = {}
@@ -64,42 +63,39 @@ class ReglasDifusasAgent(Agent):
 
 		async def on_end(self):
 			print('[RecvBehav] Finalizando comportamiento encargado de recibir la información recopilada en los RecolectorAgent...')
-			self.agent.equipo_local = self.equipo_local 
-			self.agent.equipo_visitante = self.equipo_visitante 
-			self.agent.add_behaviour(self.agent.ReglasBehav())
+			self.agent.add_behaviour(self.agent.ReglasBehav(self.equipo_local, self.equipo_visitante))
 
 
 	# Comportamiento encargado de aplicar las Reglas Difusas y calcular los grados de pertenencia a cada etiqueta
 	class ReglasBehav(OneShotBehaviour):
 
+		def __init__(self, equipo_local={}, equipo_visitante={}):
+			self.equipo_local = equipo_local
+			self.equipo_visitante = equipo_visitante
+
 		async def on_start(self):
 			print('[ReglasBehav] Iniciando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
-			#Tomamos los valores de los equipos recibidos durante la recepción de mensajes
-			self.equipo_local = self.agent.equipo_local
-			self.equipo_visitante = self.agent.equipo_visitante
-			
 
 		async def run(self):
 			print('[ReglasBehav] Comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela en proceso...')
-			#Definimos los rangos y cojuntos de valores que pueden tomar las etiquetas
 			self.define_clasificacion_rangos()
-			#Relacionamos cada cojuntos con la etiqueta ligüistica correspondiente
 			self.define_etiquetas()
-			#Definimos el conjunto de reglas difusas en la que se va a basar
 			self.define_reglas_difusas()
 			self.resultado()
+			#self.team = []
 
-			self.kill()
+			if self.team:
+				self.kill(exit_code=10)
 
 		async def on_end(self):
 			print('[ReglasBehav] Finalizando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
 
 
 		##############################################################################################################
-		
-##########################################DEFINICIÓN DE RANGOS################################################
+		##########################################DEFINICIÓN DE RANGOS################################################
 		def define_clasificacion_rangos(self):
 			Rango_Equipos  = np.arange(1, 20, 1)
+
 
 			ZonaAlta = fuzz.trapmf(Rango_Equipos, [1, 1, 4, 6])
 			ZonaMediaAlta = fuzz.trapmf(Rango_Equipos, [4, 6, 6, 8])
@@ -157,8 +153,7 @@ class ReglasDifusasAgent(Agent):
 
 
 		##############################################################################################################
-
-#######################################DEFINICIÓN DE ETIQUIETAS###############################################
+		#######################################DEFINICIÓN DE ETIQUIETAS###############################################
 		def define_etiquetas(self):
 			self.Clasificacion_Local = ctrl.Antecedent(np.arange(1, 20, 1), 'Clasificación Local')
 			self.Clasificacion_Visitante = ctrl.Antecedent(np.arange(1, 20, 1), 'Clasificación Visitante')
@@ -216,36 +211,13 @@ class ReglasDifusasAgent(Agent):
 
 
 		##############################################################################################################
-
-####################################DEFINICIÓN DE LAS REGLAS DIFUSAS##########################################
+		####################################DEFINICIÓN DE LAS REGLAS DIFUSAS##########################################
 		def define_reglas_difusas(self):
-#REGLA 1 y REGLA 2
-#Si ambos equipos se encuentran en la misma zona de la tabla y uno de los equipos viene de buena racha y otro de mala, entonces ganará el equipo que venga con mejor racha
-
 			rule1 = ctrl.Rule(self.Media_Posesion_Local['Alta'] | self.Media_Posesion_Visitante['Baja'], self.Result['1'])
 			rule2 = ctrl.Rule((self.Media_Posesion_Local['Media'] & self.Media_Posesion_Visitante['Media']) & self.Media_Tiros_Puerta_Visitante['Alta'], self.Result['2'])
-			
-		#REGLA 3
-#Si ambos equipos se encuentran en la misma zona de la tabla siendo estas de la mitad hacia abajo y ambos tiene una racha parecida, entonces se decanta por un empate
-
 			rule3 = ctrl.Rule(self.Media_Goles_Partido_Local['Baja'] | self.Media_Goles_Partido_Visitante['Baja'], self.Result['X'])
-			
-#REGLA 4
-
-#Si ambos equipos se encuentran en la misma zona de la tabla siendo estas la mitad superior y ambos tiene una racha parecida pero no mala, entonces se decanta por un empate
-
 			rule4 = ctrl.Rule((self.Numero_Habitantes_Local['Muy baja'] | self.Numero_Habitantes_Local['Baja']) & (self.Numero_Habitantes_Visitante['Muy alta'] | self.Numero_Habitantes_Visitante['Alta']), self.Result['2'])
-		
-#REGLA 5
-
-#Si ambos equipos se encuentran en la misma zona de la tabla siendo estas la mitad superior y ambos tiene una mala racha, entonces se decanta por que gana el local
-
 			rule5 = ctrl.Rule(self.Media_Goles_Partido_Local['Alta'] & self.Media_Goles_Partido_Visitante['Baja'], self.Result['1'])
-			
-#REGLA 6 y REGLA 7
-
-#Si ambos equipos sen encuentran cerca de la zona alta o cerca de la zona baja ganará el Local
-
 			rule6 = ctrl.Rule((self.Media_Tiros_Puerta_Local['Alta'] & self.Media_Tiros_Puerta_Local['Alta']) | (self.Media_Tiros_Puerta_Local['Baja'] & self.Media_Tiros_Puerta_Local['Baja']), self.Result['X'])
 
 			rule7 = ctrl.Rule(((self.Clasificacion_Visitante['Zona Media Baja'] & self.Clasificacion_Local['Zona Media Baja']) |
@@ -255,10 +227,6 @@ class ReglasDifusasAgent(Agent):
 			                  (self.Clasificacion_Visitante['Zona Alta'] & self.Clasificacion_Local['Zona Alta'])) &
 			                  (self.Racha_Local['Buena Racha'] & self.Racha_Visitante['Mala Racha']),
 			                  self.Result['1'])
-
-#REGLA 8 y REGLA 9
-
-#Si ambos equipos tienen mala racha y un equipo se considera goleador y el otro no ganará el goleador			                  			          
 
 			rule8 = ctrl.Rule(((self.Clasificacion_Visitante['Zona Media Baja'] & self.Clasificacion_Local['Zona Media Baja']) |
 			                  (self.Clasificacion_Visitante['Zona Media Alta'] & self.Clasificacion_Local['Zona Media Alta']) |
@@ -335,19 +303,17 @@ class ReglasDifusasAgent(Agent):
 			val = self.quiniela.output['Result']
 			range = np.arange(1, 9, 1)
 			variable = self.Result['1']
-			
-			pertenencia1 = fuzz.interp_membership(range, variable.mf, val)
-			print('1:', pertenencia1)
+			dict_result = {}
+			dict_result['1'] = fuzz.interp_membership(range, variable.mf, val)
 			
 			variable = self.Result['X']
-			
-			pertenenciaX = fuzz.interp_membership(range, variable.mf, val)
-			print('X:', pertenenciaX)
-			
+			dict_result['X'] = fuzz.interp_membership(range, variable.mf, val)
+
 			variable = self.Result['2']
-			
-			pertenencia2 = fuzz.interp_membership(range, variable.mf, val)
-			print('2:', pertenencia2)
+			dict_result['2'] = fuzz.interp_membership(range, variable.mf, val)
+			print(dict_result)
+
+			print('La etiqueta ligüistica ', max(dict_result.keys()), 'es la de mayor pertenencia')
 
 
 if len(sys.argv) == 1:
