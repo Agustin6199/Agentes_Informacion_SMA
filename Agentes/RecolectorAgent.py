@@ -351,14 +351,43 @@ class RecolectorAgent(Agent):
 				ranking.append([pos, equipo, ptos, pj, pg , pgl, pgv, pe, pp, gf, gc])				#Recogemos la información del equipo
 
 			return ranking
+			
+			
+def get_teams():
+	#Definimos la url a la quedeseamos solicitar conexion y realizamos el request correspondiente
+	url = 'https://resultados.as.com/resultados/futbol/primera/clasificacion/'
+	#url = 'https://resultados.as.com/resultados/futbol/segunda/clasificacion/'
 
+	respuesta = requests.get(
+		url,
+		headers = {
+			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36'
+			}
+	)
 
+	#Procesamos la respuesta dada por el servidor de la pagina con el contenido de está
+	contenido_web = BeautifulSoup(respuesta.text, 'lxml')
 
-equipos_validos = ['Barcelona', 'Villareal', 'Sevilla']
+	#Definimos la variable donde se van a guardar todos los equipos con su posicion en la liga, puntos, partidos jugados, partidos ganados, partidos empatados y partidos perdidos
+			
+	#Recogemos unicamenete la tabla de clasificación de la liga
+	tabla = contenido_web.find('table', attrs={'class':'tabla-datos table-hover'})
+	#Nos centramos en el cuerpo de la tabla la cual contienen la información de valor de la tabla
+	body = tabla.tbody.find_all('td')
+	ranking=[]
+	
+	for p in tabla.find_all('th')[26:]: #Saltamos las primeras 25 posicion que corresponden con las cabeceras y recogemos por equipo
+		pos = int(p.find('span', attrs={'class':'pos'}).string)			#La posicion en la liga
+		equipo = p.find('span', attrs={'class':'nombre-equipo'}).string	#El nombre del equipo
+		
+		ranking.append(equipo)				#Recogemos la información del equipo
+
+	return ranking
+
 
 if len(sys.argv) == 2:
 
-	if sys.argv[-1] in equipos_validos:
+	if sys.argv[-1] in get_teams():
 		senderagent = RecolectorAgent("recolector_agente_sma@xmpp.jp", "sma_mola_mazo")
 		senderagent.start()
 
@@ -371,6 +400,6 @@ if len(sys.argv) == 2:
 		print("Agente finalizado")
 	else:
 		print("Error, el equipo " + sys.argv[-1] + " no es válido. Prueba a introducir uno de los equipos de la siguiente lista: ")
-		print(equipos_validos)
+		print(get_teams())
 else:
 	print("Error, argumentos incorrectos. La sintaxis correcta para lanzar el agente es la siguiente: python3 RecolectorAgent.py <Nombre del equipo>")
