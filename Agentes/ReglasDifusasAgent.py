@@ -63,18 +63,18 @@ class ReglasDifusasAgent(Agent):
 
 		async def on_end(self):
 			print('[RecvBehav] Finalizando comportamiento encargado de recibir la información recopilada en los RecolectorAgent...')
-			self.agent.add_behaviour(self.agent.ReglasBehav(self.equipo_local, self.equipo_visitante))
+			self.agent.equipo_local = self.equipo_local
+			self.agent.equipo_visitante = self.equipo_visitante
+			self.agent.add_behaviour(self.agent.ReglasBehav())
 
 
 	# Comportamiento encargado de aplicar las Reglas Difusas y calcular los grados de pertenencia a cada etiqueta
 	class ReglasBehav(OneShotBehaviour):
 
-		def __init__(self, equipo_local={}, equipo_visitante={}):
-			self.equipo_local = equipo_local
-			self.equipo_visitante = equipo_visitante
-
 		async def on_start(self):
 			print('[ReglasBehav] Iniciando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
+			self.equipo_local = self.agent.equipo_local
+			self.equipo_visitante = self.agent.equipo_local
 
 		async def run(self):
 			print('[ReglasBehav] Comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela en proceso...')
@@ -82,10 +82,8 @@ class ReglasDifusasAgent(Agent):
 			self.define_etiquetas()
 			self.define_reglas_difusas()
 			self.resultado()
-			#self.team = []
-
-			if self.team:
-				self.kill(exit_code=10)
+			
+			self.kill()
 
 		async def on_end(self):
 			print('[ReglasBehav] Finalizando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
@@ -297,7 +295,7 @@ class ReglasDifusasAgent(Agent):
 			# Crunch the numbers
 			self.quiniela.compute()
 
-			print(self.quiniela.output['Result'])
+			#print(self.quiniela.output['Result'])
 			#self.Result.view(sim=self.quiniela)
 
 			val = self.quiniela.output['Result']
@@ -311,9 +309,9 @@ class ReglasDifusasAgent(Agent):
 
 			variable = self.Result['2']
 			dict_result['2'] = fuzz.interp_membership(range, variable.mf, val)
-			print(dict_result)
+			print('\n', dict_result)
 
-			print('La etiqueta ligüistica ', max(dict_result.keys()), 'es la de mayor pertenencia')
+			print('\n[ReglasBehav] La etiqueta ligüistica ', max(dict_result.keys()), 'es la de mayor pertenencia\n')
 
 
 if len(sys.argv) == 1:
