@@ -287,7 +287,7 @@ class ReglasDifusasAgent(Agent):
 			self.quiniela.input['Media de posesión del balón del local'] = self.equipo_local.get('Posesion')
 			self.quiniela.input['Media de posesión del balón del visitante'] = self.equipo_visitante.get('Posesion')
 
-
+			
 			self.quiniela.input['Media de tiros a puerta del local'] = self.equipo_local.get('Tiros a puerta')
 			self.quiniela.input['Media de tiros a puerta del visitante'] = self.equipo_visitante.get('Tiros a puerta')
 
