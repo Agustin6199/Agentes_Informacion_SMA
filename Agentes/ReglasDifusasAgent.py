@@ -10,85 +10,89 @@ import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 import matplotlib.pyplot as plt
 from threading import Thread
+import sys
 
 class ReglasDifusasAgent(Agent):
 
+	# Setup del agente ReglasDifusasAgent
 	async def setup(self):
-		print("ReglasDifusasAgent started")
+		print("Instanciado agente ReglasDifusasAgent")
+		# Instanciamos el comportamiento RecvBehav
 		b = self.RecvBehav()
+
+		# Declaramos la plantilla que utilizaremos para filtrar los mensajes que recibiremos en el comportamiento RecvBehav
 		template = Template()
 		template.set_metadata("performative", "inform")
+
+		# Añadimos el comportamiento junto con la plantilla definida
 		self.add_behaviour(b, template)
 		
-		
+	
+	# Comportamiento encargado de recibir la información recopilada en los RecolectorAgent
 	class RecvBehav(CyclicBehaviour):
 	
 		async def on_start(self):
-			print('RecvBehav starting')
+			print('[RecvBehav] Iniciando comportamiento encargado de recibir la información recopilada en los RecolectorAgent...')
 			self.local = False
 			self.visitante = False
 			self.equipo_local = {}
 			self.equipo_visitante = {}
 
 		async def run(self):
-			print("RecvBehav running....")
+			print("[RecvBehav] Esperando mensajes...")
 
 			if self.local:
 				if self.visitante:
-					print("Equipo Local: {}\nEquipo Visitante: {}".format(str(self.equipo_local), str(self.equipo_visitante)))
+					print("\n[RecvBehav] Información del Equipo Local recibida: \n{}".format(str(self.equipo_local)))
+					print("\n[RecvBehav] Información del Equipo Visitante recibida: \n{}\n".format(str(self.equipo_visitante)))
 					self.kill(exit_code=10)
 				else:
 					msg = await self.receive(timeout=10) # wait for a message for 10 seconds
 					if msg:
-						print("Message received with content: {}".format(msg.body))
+						print("[RecvBehav] Mensaje recibido con el siguiente contenido: {}".format(msg.body))
 						self.equipo_visitante = json.loads(msg.body.replace("'", "\""))
 						self.visitante = True
 			else:
 				msg = await self.receive(timeout=10) # wait for a message for 10 seconds
 				if msg:
-					print("Message received with content: {}".format(msg.body))
+					print("[RecvBehav] Mensaje recibido con el siguiente contenido: {}".format(msg.body))
 					self.equipo_local = json.loads(msg.body.replace("'", "\"")) 
 					self.local = True
-					
 
-
-
-				
-
-			# stop agent from behaviour
 			await asyncio.sleep(1)
 
 		async def on_end(self):
-			print('RecvBehav ending')
+			print('[RecvBehav] Finalizando comportamiento encargado de recibir la información recopilada en los RecolectorAgent...')
 			self.agent.add_behaviour(self.agent.ReglasBehav(self.equipo_local, self.equipo_visitante))
 
-	class ReglasBehav(OneShotBehaviour):
 
+	# Comportamiento encargado de aplicar las Reglas Difusas y calcular los grados de pertenencia a cada etiqueta
+	class ReglasBehav(OneShotBehaviour):
 
 		def __init__(self, equipo_local={}, equipo_visitante={}):
 			self.equipo_local = equipo_local
 			self.equipo_visitante = equipo_visitante
 
 		async def on_start(self):
-			print('ReglasBehav starting')
+			print('[ReglasBehav] Iniciando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
+
+		async def run(self):
+			print('[ReglasBehav] Comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela en proceso...')
 			self.define_clasificacion_rangos()
 			self.define_etiquetas()
 			self.define_reglas_difusas()
 			self.resultado()
-			self.team = []
+			#self.team = []
 
-
-
-		async def run(self):
-			print('ReglasBehav running')
-		
 			if self.team:
 				self.kill(exit_code=10)
 
 		async def on_end(self):
-			print('ReglasBehav ending')
+			print('[ReglasBehav] Finalizando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
 
-#############################################DEFINICION DE RANGOS#####################################
+
+		##############################################################################################################
+		##########################################DEFINICIÓN DE RANGOS################################################
 		def define_clasificacion_rangos(self):
 			Rango_Equipos  = np.arange(1, 20, 1)
 
@@ -148,8 +152,8 @@ class ReglasDifusasAgent(Agent):
 
 
 
-
-#######################################DEFINICION DE ETIQUETAS#####################################################
+		##############################################################################################################
+		#######################################DEFINICIÓN DE ETIQUIETAS###############################################
 		def define_etiquetas(self):
 			self.Clasificacion_Local = ctrl.Antecedent(np.arange(1, 20, 1), 'Clasificación Local')
 			self.Clasificacion_Visitante = ctrl.Antecedent(np.arange(1, 20, 1), 'Clasificación Visitante')
@@ -206,8 +210,8 @@ class ReglasDifusasAgent(Agent):
 			self.Result.automf(names=result_labels)
 
 
-
-###################################################REGLAS DIFUSAS#######################################
+		##############################################################################################################
+		####################################DEFINICIÓN DE LAS REGLAS DIFUSAS##########################################
 		def define_reglas_difusas(self):
 			rule1 = ctrl.Rule(self.Media_Posesion_Local['Alta'] | self.Media_Posesion_Visitante['Baja'], self.Result['1'])
 			rule2 = ctrl.Rule((self.Media_Posesion_Local['Media'] & self.Media_Posesion_Visitante['Media']) & self.Media_Tiros_Puerta_Visitante['Alta'], self.Result['2'])
@@ -263,8 +267,9 @@ class ReglasDifusasAgent(Agent):
 			quiniela_ctrl = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8 , rule9, rule10, rule11, rule12, rule13, rule14])
 			self.quiniela = ctrl.ControlSystemSimulation(quiniela_ctrl)
 
-###################################################RESULTADO#######################################
 
+		##############################################################################################################
+		################################################RESULTADOS####################################################
 		def resultado(self):
 			self.quiniela.input['Clasificación Local'] = self.equipo_local.get('Ranking')
 			self.quiniela.input['Clasificación Visitante'] = self.equipo_visitante.get('Ranking')
@@ -313,9 +318,8 @@ class ReglasDifusasAgent(Agent):
 			print('2:', pertenencia2)
 
 
+if len(sys.argv) == 1:
 
-
-if __name__ == "__main__":
 	receiveragent = ReglasDifusasAgent("reglas_difusas_agente_sma@xmpp.jp", "sma_mola_mazo")
 	future = receiveragent.start()
 	future.result() # wait for receiver agent to be prepared.
@@ -326,4 +330,7 @@ if __name__ == "__main__":
 		except KeyboardInterrupt:
 			receiveragent.stop()
 			break
-	print("Agents finished")
+	print("Agente finalizado")
+
+else:
+	print("Error, argumentos incorrectos. La sintaxis correcta para lanzar el agente es la siguiente: python3 ReglasDifusasAgent.py")

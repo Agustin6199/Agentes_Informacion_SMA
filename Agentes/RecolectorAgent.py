@@ -12,10 +12,10 @@ import sys
 
 class RecolectorAgent(Agent):
 
-
+	# Setup del agente RecolectorAgent
 	async def setup(self):
 		self.dict_team = {}
-		print("Instanciado RecolectorAgent")
+		print("Instanciado agente RecolectorAgent")
 		b = self.GetInfoBehav()
 		self.add_behaviour(b)
 
