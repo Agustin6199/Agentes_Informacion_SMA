@@ -73,14 +73,19 @@ class ReglasDifusasAgent(Agent):
 
 		async def on_start(self):
 			print('[ReglasBehav] Iniciando comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela...')
+			#Instanciamos los dos equipos 
 			self.equipo_local = self.agent.equipo_local
 			self.equipo_visitante = self.agent.equipo_local
 
 		async def run(self):
 			print('[ReglasBehav] Comportamiento encargado de aplicar las reglas difusas y generar el signo de la quiniela en proceso...')
+			#Definimos los rangos y conjuntos de valores en los que se puede mover las etiquetas
 			self.define_clasificacion_rangos()
+			#Asociamos los conjuntos definidos con sus respectivas etiquetas
 			self.define_etiquetas()
+			#Generamos el conjunto de reglas difusas
 			self.define_reglas_difusas()
+			#Generamos el resultado de los equipo
 			self.resultado()
 			
 			self.kill()
@@ -90,7 +95,8 @@ class ReglasDifusasAgent(Agent):
 
 
 		##############################################################################################################
-		##########################################DEFINICIÓN DE RANGOS################################################
+
+##########################################DEFINICIÓN DE RANGOS################################################
 		def define_clasificacion_rangos(self):
 			Rango_Equipos  = np.arange(1, 20, 1)
 
@@ -151,7 +157,8 @@ class ReglasDifusasAgent(Agent):
 
 
 		##############################################################################################################
-		#######################################DEFINICIÓN DE ETIQUIETAS###############################################
+
+#######################################DEFINICIÓN DE ETIQUIETAS###############################################
 		def define_etiquetas(self):
 			self.Clasificacion_Local = ctrl.Antecedent(np.arange(1, 20, 1), 'Clasificación Local')
 			self.Clasificacion_Visitante = ctrl.Antecedent(np.arange(1, 20, 1), 'Clasificación Visitante')
@@ -244,13 +251,13 @@ class ReglasDifusasAgent(Agent):
 
 			rule10 = ctrl.Rule(((self.Clasificacion_Visitante['Zona Media Alta'] & self.Clasificacion_Local['Zona Media Alta']) |
 			                  (self.Clasificacion_Visitante['Zona Alta'] & self.Clasificacion_Local['Zona Alta'])) &
-			                  ((self.Racha_Visitante['Mala Racha'] & self.Racha_Local['Mala Racha'])|
+			                  ((self.Racha_Visitante['Buena Racha'] & self.Racha_Local['Buena Racha'])|
 			                   (self.Racha_Visitante['Racha Normal'] & self.Racha_Local['Racha Normal'])), 
 			                  self.Result['X'])
 
 			rule11 = ctrl.Rule(((self.Clasificacion_Visitante['Zona Media Alta'] & self.Clasificacion_Local['Zona Media Alta']) |
 			                  (self.Clasificacion_Visitante['Zona Alta'] & self.Clasificacion_Local['Zona Alta'])) &
-			                  (self.Racha_Visitante['Buena Racha'] & self.Racha_Local['Buena Racha']), 
+			                  (self.Racha_Visitante['Mala Racha'] & self.Racha_Local['Mala Racha']), 
 			                  self.Result['1'])
 
 			rule12 = ctrl.Rule((self.Clasificacion_Visitante['Zona Media Baja'] | self.Clasificacion_Visitante['Zona Descenso']) &
