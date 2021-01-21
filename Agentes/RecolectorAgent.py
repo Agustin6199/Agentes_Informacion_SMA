@@ -75,7 +75,10 @@ class RecolectorAgent(Agent):
 				
 			#Cogemos las estadisticas del equipo, sino se puede se devuelve una lista vacia
 			for t in self.get_statistics():
-				if t[0] == self.team_name.upper():
+				if t[0].upper() in dict_mutables:
+					if dict_mutables.get(t[0].upper()) == self.team_name:
+						team.append(t)
+				elif t[0] == self.team_name.upper():
 					team.append(t)
 			if len(team) == 1:
 				team.append([])
@@ -89,6 +92,7 @@ class RecolectorAgent(Agent):
 			
 			#Cogemos la informacion de la poblacion,sino se puede se devuelve una lista vacia
 			team.append([self.get_city_population_per_team().get(self.team_name)])
+			
 
 			if team[0]:
 				self.dict_team.update({'Ranking' : team[0][0], 'Nombre': team[0][1], 'Ptos': team[0][2], 'Partidos Jugados': team[0][3], 'Partidos Ganados': team[0][4],
@@ -384,6 +388,7 @@ def get_teams():
 
 	return ranking
 
+dict_mutables = {"AT.MADRID":"Atlético", "R.MADRID": "Real Madrid"}
 
 if len(sys.argv) == 2:
 
